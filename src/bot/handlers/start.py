@@ -8,12 +8,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 router = Router()
 
 # Клавиатура
-def start_kb():
+def start_kb(telegram_id):
     builder = InlineKeyboardBuilder()
     builder.button(text='Скопировать ссылку', copy_text=CopyTextButton(text='test'))
     builder.button(text='Статистика', callback_data='stats')
+    if telegram_id in ADMINS:
+        builder.button(text='Админ панель', callback_data='adminpanel')
 
-    builder.adjust(1, 1)
+    builder.adjust(1, 1, 1)
 
     return builder.as_markup()
 
@@ -33,12 +35,14 @@ def start_text(full_name: str):
 @router.message(Command('start'))
 async def start_handler(message: Message):
     full_name = message.from_user.full_name
+    telegram_id = message.from_user.id
     
-    await message.answer(text=start_text(full_name), reply_markup=start_kb())
+    await message.answer(text=start_text(full_name), reply_markup=start_kb(telegram_id))
 
 
 @router.callback_query(F.data == 'start')
 async def start_callback(callback: CallbackQuery):
     full_name = callback.from_user.full_name
-    
-    await callback.message.edit_text(text=start_text(full_name), reply_markup=start_kb())
+    telegram_id = callback.from_user.id
+
+    await callback.message.edit_text(text=start_text(full_name), reply_markup=start_kb(telegram_id))
