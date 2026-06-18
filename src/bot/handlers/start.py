@@ -37,7 +37,7 @@ async def start_handler(message: Message):
     await message.answer(text=start_text(full_name), reply_markup=start_kb())
 
 
-@router.message(F.data == 'start')
+@router.callback_query(F.data == 'start')
 async def start_callback(callback: CallbackQuery):
     full_name = callback.from_user.full_name
     
