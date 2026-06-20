@@ -1,5 +1,5 @@
 from src.bot.database.db import engine, SessionLocal
-from src.bot.database.models import Base, User, Stats
+from src.bot.database.models import Base, User, Stats, Message
 
 from sqlalchemy import select
 
@@ -34,3 +34,38 @@ async def create_user(
         await session.commit()
 
         return user
+
+# Получить юзера по его ссылке
+async def get_tgid_by_link(link_name: str):
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(User.telegram_id).where(
+                User.link_name == link_name
+            )
+        )
+
+        return result.scalar_one_or_none()
+    
+# Сохранение сообщения
+async def create_message(receiver_id: int, text: str):
+    async with SessionLocal() as session:
+        result = Message(receiver_id = receiver_id, text = text)
+
+        session.add(result)
+        await session.commit()
+
+        return result
+    
+# TEST TEST TEST
+async def debug_users():
+    async with SessionLocal() as session:
+        result = await session.execute(select(User))
+
+        users = result.scalars().all()
+
+        for user in users:
+            print(
+                f"id={user.telegram_id} "
+                f"username={user.username} "
+                f"link={user.link_name}"
+            )

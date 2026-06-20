@@ -2,11 +2,12 @@ from config import *
 
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, CopyTextButton
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.fsm.context import FSMContext
 
-from src.bot.database.requests import get_user, create_user
-from src.bot.utils import generate_link
+from src.bot.database.requests import get_user, create_user, get_tgid_by_link, debug_users
+from src.bot.utils import generate_link, MessageState
 
 router = Router()
 
@@ -40,10 +41,17 @@ async def start_text(full_name: str, telegram_id: int):
 """
     return text
 
+async def sendmessage_text():
+    text = f"""Отправьте ваше сообщение"""
+
+    return text
+
 
 # Хендлеры
 @router.message(Command('start'))
-async def start_handler(message: Message):
+async def start_handler(message: Message, command: CommandObject, state: FSMContext):
+
+    await debug_users()
 
     full_name = message.from_user.full_name
     telegram_id = message.from_user.id
@@ -53,8 +61,18 @@ async def start_handler(message: Message):
 
     if not user:
         user = await create_user(telegram_id=telegram_id, username=username, link_name=generate_link())
-    
-    await message.answer(text = await start_text(full_name, telegram_id), reply_markup = await start_kb(telegram_id))
+
+    if command.args:
+        receiver = await get_tgid_by_link(command.args)
+
+        await state.update_data(receiver=receiver)
+        await state.set_state(MessageState.waiting_message)
+        await message.answer(text= await sendmessage_text())
+
+        return
+
+    else:
+        await message.answer(text = await start_text(full_name, telegram_id), reply_markup = await start_kb(telegram_id))
 
 
 @router.callback_query(F.data == 'start')
@@ -63,3 +81,13 @@ async def start_callback(callback: CallbackQuery):
     telegram_id = callback.from_user.id
 
     await callback.message.edit_text(text = await start_text(full_name, telegram_id), reply_markup = await start_kb(telegram_id))
+
+@router.message(MessageState.waiting_message)
+async def waiting_message_handler(message: Message, state: FSMContext):
+
+    data = await state.get_data()
+    receiver_tg_id = data["receiver"]
+
+    await message.bot.send_message(chat_id=receiver_tg_id, text=message.text)
+
+    await state.clear()
